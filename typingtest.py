@@ -1,4 +1,4 @@
-import curses, typing, time, textwrap, math, datetime, sys
+import curses, typing, time, textwrap, math, datetime, sys, getopt
 
 try:
     t = typing.Words(open("words.txt"))
@@ -29,8 +29,8 @@ try:
 
     screen.getch()
 
-    top_words = 100
-    length = 10
+    top_words = int(getopt.getopt(sys.argv[1:], 't:l:')[0][0][1])
+    length = int(getopt.getopt(sys.argv[1:], 't:l:')[0][1][1])
     t.set_range(0, top_words)
 
     words = [t.next() for i in range(length)]
@@ -130,5 +130,6 @@ try:
 except Exception as e:
     curses.endwin()
     print(e.with_traceback())
-
+finally:
+    curses.endwin()
 # Exit and return to the terminal

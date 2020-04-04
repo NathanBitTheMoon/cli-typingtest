@@ -1,12 +1,56 @@
-import curses, typing, time, textwrap, math, datetime, sys, getopt
+import curses, typing, time, textwrap, math, datetime, sys, argparse
 
-try:
-    t = typing.Words(open("words.txt"))
-
+def init_screen():
     screen = curses.initscr()
     curses.start_color()
     curses.cbreak()
     screen.keypad(True)
+
+    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE) # Correctly typed text
+    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_BLUE) # Untyped text
+    curses.init_pair(3, curses.COLOR_WHITE, curses.COLOR_RED) # Incorrectly typed text
+    curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_WHITE) # Cursor text
+
+    return screen
+
+def create_random_words(length, words, minimum_length):
+    words = [words.next(shortest = minimum_length) for i in range(length)]
+    return words
+
+def get_args(args):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-rs", "--range-start", help = "Start of the range from the word list", default = 0, type = int)
+    parser.add_argument("-re", "--range-end", help = "End of the range from the word list", default = 100, type = int)
+    parser.add_argument("-l", "--length", help = "The length of the typing test in words", default = 100, type = int)
+    parser.add_argument("-tf", "--text-file", help = "The text file that will be used", default = "words.txt", type = str)
+    parser.add_argument("-dr", "--disable-random", help = "Don't randomise the list of words")
+    parser.add_argument("-sw", "--shortest-word", help = "The shortest a word can be", default = 3, type = int)
+
+    args = parser.parse_args(args)
+    return_value = {
+        "range_start": args.range_start,
+        "range_end": args.range_end,
+        "length": args.length,
+        "text_file": args.text_file,
+        "disable_random": args.disable_random,
+        "minimum_length": args.shortest_word
+    }
+
+    return return_value
+
+def welcome_message(args):
+    message = "Welcome! Please press any key to continue"
+    screen.addstr(1, centre_pos_x(message), message, curses.color_pair(1))
+
+    info = f"Length: {args['length']}, File: {args['text_file']}{', Random' if not args['disable_random'] else ''}"
+    screen.addstr(2, centre_pos_x(info), info)
+    screen.refresh()
+
+    screen.getch()
+
+try:
+
+    screen = init_screen()
 
     console_height, console_width = screen.getmaxyx()
 
@@ -16,27 +60,21 @@ try:
     def centre_pos_y(text):
         return int((console_height / 2) - (len(text.split('\n')) / 2))
 
-    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE) # Correctly typed text
-    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_BLUE) # Untyped text
-    curses.init_pair(3, curses.COLOR_WHITE, curses.COLOR_RED) # Incorrectly typed text
-    curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_WHITE) # Cursor text
+    command_line_arguments = get_args(sys.argv[1:])
 
+    length = command_line_arguments["length"]
 
-    message = "Welcome! Please press any key to continue"
-    message2 = ""
-    screen.addstr(1, centre_pos_x(message), message, curses.color_pair(1))
-    screen.refresh()
+    t = typing.Words(open(
+        command_line_arguments["text_file"]
+    ))
+    t.set_range(
+        command_line_arguments["range_start"],
+        command_line_arguments["range_end"]
+    )
 
-    screen.getch()
+    welcome_message(command_line_arguments)
 
-    top_words = int(getopt.getopt(sys.argv[1:], 't:l:')[0][0][1])
-    length = int(getopt.getopt(sys.argv[1:], 't:l:')[0][1][1])
-    t.set_range(0, top_words)
-
-    words = [t.next() for i in range(length)]
-    screen.addstr(5, 1, str(words))
-    screen.refresh()
-    words_string = '\n'.join(textwrap.wrap(' '.join(words), console_width))
+    words = create_random_words(command_line_arguments["length"], t, command_line_arguments["minimum_length"])
 
     cursor = 0
     user_input = ""

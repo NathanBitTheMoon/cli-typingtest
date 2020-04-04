@@ -14,7 +14,7 @@ def init_screen():
     return screen
 
 def create_random_words(length, words, minimum_length):
-    words = [words.next(shortest = minimum_length) for i in range(length)]
+    words = [words.next(shortest = minimum_length - 1) for i in range(length)]
     return words
 
 def get_args(args):
@@ -23,8 +23,10 @@ def get_args(args):
     parser.add_argument("-re", "--range-end", help = "End of the range from the word list", default = 100, type = int)
     parser.add_argument("-l", "--length", help = "The length of the typing test in words", default = 100, type = int)
     parser.add_argument("-tf", "--text-file", help = "The text file that will be used", default = "words.txt", type = str)
-    parser.add_argument("-dr", "--disable-random", help = "Don't randomise the list of words")
+    parser.add_argument("-dr", "--disable-random", help = "Don't randomise the list of words", default = "True", type = bool)
     parser.add_argument("-sw", "--shortest-word", help = "The shortest a word can be", default = 3, type = int)
+    parser.add_argument("-sc", "--split-char", help = "Where the words will be split in the text", default = "\n", type = str)
+    parser.add_argument("-rp", "--remove-punctuation", help = "The shortest a word can be", default = True, type = bool)
 
     args = parser.parse_args(args)
     return_value = {
@@ -41,6 +43,7 @@ def get_args(args):
 def welcome_message(args):
     message = "Welcome! Please press any key to continue"
     screen.addstr(1, centre_pos_x(message), message, curses.color_pair(1))
+    screen.addstr(0, 0, f'File: {args["text_file"]}')
 
     info = f"Length: {args['length']}, File: {args['text_file']}{', Random' if not args['disable_random'] else ''}"
     screen.addstr(2, centre_pos_x(info), info)
@@ -49,7 +52,7 @@ def welcome_message(args):
     screen.getch()
 
 try:
-
+    # Init screen and some functions for text
     screen = init_screen()
 
     console_height, console_width = screen.getmaxyx()
@@ -60,10 +63,12 @@ try:
     def centre_pos_y(text):
         return int((console_height / 2) - (len(text.split('\n')) / 2))
 
+    # Pass command line functions
     command_line_arguments = get_args(sys.argv[1:])
 
     length = command_line_arguments["length"]
 
+    # Create words list
     t = typing.Words(open(
         command_line_arguments["text_file"]
     ))
@@ -71,15 +76,14 @@ try:
         command_line_arguments["range_start"],
         command_line_arguments["range_end"]
     )
-
     welcome_message(command_line_arguments)
 
-    words = create_random_words(command_line_arguments["length"], t, command_line_arguments["minimum_length"])
+    words = create_random_words(t.range[1], t, command_line_arguments["minimum_length"])
 
     cursor = 0
     user_input = ""
 
-    def draw_words(words_list, user_input, std, start_time):
+    def draw_words(words_list, user_input, std, start_time, args):
         std.clear()
         cursor_pos = len(user_input)
 
@@ -132,9 +136,9 @@ try:
     end_time = None
     while True:
         if len(user_input) < len(' '.join(words)):
-            result = draw_words(words, user_input, screen, start_time)
+            result = draw_words(words, user_input, screen, start_time, command_line_arguments)
         else:
-            result = draw_words(words, user_input, screen, start_time)
+            result = draw_words(words, user_input, screen, start_time, command_line_arguments)
             end_time = datetime.datetime.now()
             screen.clear()
 
@@ -142,7 +146,11 @@ try:
             diff = (end_time - start_time)
             cpm = result["char"] / diff.total_seconds()
             wpm = result["words"] / diff.total_seconds()
-            screen.addstr(1, 1, f"Time: {str((diff.seconds//60)%60).zfill(2)}:{str(diff.seconds).zfill(2)}.{str(round(diff.microseconds, 2)).zfill(2)}, CPM: {str(round(cpm*60, 1))}, WPM: {str(round(wpm*60, 1))}\n Words: {length}, Correct Words: {result['words']}, Length: {len(words_string)}, Correct chars: {result['char']}\n Accuracy: {round((result['char'] / len(words_string)) * 100, 1)}%\n\n [R]estart, [E]xit")
+            filename = command_line_arguments["text_file"].split('.')
+            filename = '.'.join(filename[::-1][1:][::-1])
+            screen.addstr(1, centre_pos_x("Results"), "Results", curses.color_pair(4))
+            screen.addstr(2, 1, f"Text: {filename}")
+            screen.addstr(3, 1, f"Time: {str((diff.seconds//60)%60).zfill(2)}:{str(diff.seconds).zfill(2)}.{str(round(diff.microseconds, 2)).zfill(2)}, CPM: {str(round(cpm*60, 1))}, WPM: {str(round(wpm*60, 1))}\n Words: {len(words)}\n\n [E]xit [R]estart")
 
             screen.refresh()
             key = screen.getch()
@@ -165,6 +173,8 @@ try:
         else:
             user_input += chr(key)
 
+except KeyboardInterrupt:
+    curses.endwin()
 except Exception as e:
     curses.endwin()
     print(e.with_traceback())

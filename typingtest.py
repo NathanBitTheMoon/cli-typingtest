@@ -14,16 +14,17 @@ def init_screen():
     return screen
 
 def create_random_words(length, words, minimum_length):
+    words.cursor = 0
     words = [words.next(shortest = minimum_length - 1) for i in range(length)]
     return words
 
 def get_args(args):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description = "Start the typing test with different options")
     parser.add_argument("-rs", "--range-start", help = "Start of the range from the word list", default = 0, type = int)
     parser.add_argument("-re", "--range-end", help = "End of the range from the word list", default = 100, type = int)
     parser.add_argument("-l", "--length", help = "The length of the typing test in words", default = 100, type = int)
-    parser.add_argument("-tf", "--text-file", help = "The text file that will be used", default = "words.txt", type = str)
-    parser.add_argument("-dr", "--disable-random", help = "Don't randomise the list of words", default = "True", type = bool)
+    parser.add_argument("-tf", "--text-file", help = "The text file that will be used", default = "texts/words.txt", type = str)
+    parser.add_argument("-dr", "--disable-random", help = "Don't randomise the list of words", default = "no", type = str)
     parser.add_argument("-sw", "--shortest-word", help = "The shortest a word can be", default = 3, type = int)
     parser.add_argument("-sc", "--split-char", help = "Where the words will be split in the text", default = "\n", type = str)
     parser.add_argument("-rp", "--remove-punctuation", help = "The shortest a word can be", default = True, type = bool)
@@ -35,7 +36,8 @@ def get_args(args):
         "length": args.length,
         "text_file": args.text_file,
         "disable_random": args.disable_random,
-        "minimum_length": args.shortest_word
+        "minimum_length": args.shortest_word,
+        "split_char": args.split_char
     }
 
     return return_value
@@ -50,6 +52,60 @@ def welcome_message(args):
     screen.refresh()
 
     screen.getch()
+
+def draw_words(words_list, user_input, std, start_time, args):
+    std.clear()
+    cursor_pos = len(user_input)
+
+    correct_char = 0
+    correct_word = 0
+
+    f = open("debug.log", "w")
+    f.close()
+
+    for i in range(len(' '.join(words_list))):
+        x = i % std.getmaxyx()[1]
+        y = math.floor(i/std.getmaxyx()[1])
+        f = open("debug.log", "a")
+        f.write(f"X: {x}, Y: {y}, S: {' '.join(words_list)[i]}, I: {i}\n")
+        f.close()
+
+        if ' '.join(words_list)[i] != " ":
+            if i < cursor_pos:
+                if user_input[i] == ' '.join(words_list)[i]:
+                    std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(1))
+                    correct_char += 1
+                else:
+                    std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(3))
+            if i == cursor_pos:
+                std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(4))
+            if i > cursor_pos:
+                std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(2))
+        else:
+            try:
+                if i == cursor_pos:
+                    std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(4))
+                if user_input[i] == ' '.join(words_list)[i]:
+                    std.addstr(y, x, ' ')
+                    correct_char += 1
+                else:
+                    std.addstr(y, x, ' ', curses.color_pair(3))
+            except:
+                pass
+    std.refresh()
+    # Find if they typed the entire word correct
+    split_user_input = user_input.strip().split(' ')
+
+    
+    for f in range(len(split_user_input)):
+        if split_user_input[f] == words_list[f]:
+            correct_word += 1
+
+    wpm = (correct_word / (datetime.datetime.now() - start_time).total_seconds())*60
+
+    std.addstr(std.getmaxyx()[0]-1, 0, f">: {str(split_user_input[::-1][0])}")
+    std.addstr(std.getmaxyx()[0]-1, int(std.getmaxyx()[1]/2), f"WPM: {round(wpm, 1)}")
+    return {"char": correct_char, "words": correct_word}
 
 try:
     # Init screen and some functions for text
@@ -70,66 +126,22 @@ try:
 
     # Create words list
     t = typing.Words(open(
-        command_line_arguments["text_file"]
-    ))
+        command_line_arguments["text_file"],
+    ), split_char = command_line_arguments["split_char"])
     t.set_range(
         command_line_arguments["range_start"],
         command_line_arguments["range_end"]
     )
+
+    if (command_line_arguments["disable_random"] == "no"):
+        t.random()
+
     welcome_message(command_line_arguments)
 
-    words = create_random_words(t.range[1], t, command_line_arguments["minimum_length"])
+    words = create_random_words(command_line_arguments["length"], t, command_line_arguments["minimum_length"])
 
     cursor = 0
     user_input = ""
-
-    def draw_words(words_list, user_input, std, start_time, args):
-        std.clear()
-        cursor_pos = len(user_input)
-
-        correct_char = 0
-        correct_word = 0
-
-        for i in range(len(' '.join(words_list))):
-            x = i % std.getmaxyx()[1]
-            y = math.floor(i/std.getmaxyx()[1])
-
-            if ' '.join(words_list)[i] != " ":
-                if i < cursor_pos:
-                    if user_input[i] == ' '.join(words_list)[i]:
-                        std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(1))
-                        correct_char += 1
-                    else:
-                        std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(3))
-                if i == cursor_pos:
-                    std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(4))
-                if i > cursor_pos:
-                    std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(2))
-            else:
-                try:
-                    if i == cursor_pos:
-                        std.addstr(y, x, ' '.join(words_list)[i], curses.color_pair(4))
-                    if user_input[i] == ' '.join(words_list)[i]:
-                        std.addstr(y, x, ' ')
-                        correct_char += 1
-                    else:
-                        std.addstr(y, x, ' ', curses.color_pair(3))
-                except:
-                    pass
-        std.refresh()
-        # Find if they typed the entire word correct
-        split_user_input = user_input.strip().split(' ')
-
-        
-        for f in range(len(split_user_input)):
-            if split_user_input[f] == words_list[f]:
-                correct_word += 1
-
-        wpm = (correct_word / (datetime.datetime.now() - start_time).total_seconds())*60
-
-        std.addstr(std.getmaxyx()[0]-1, 0, f">: {str(split_user_input[::-1][0])}")
-        std.addstr(std.getmaxyx()[0]-1, int(std.getmaxyx()[1]/2), f"WPM: {round(wpm, 1)}")
-        return {"char": correct_char, "words": correct_word}
 
     result = {}
     start_time = datetime.datetime.now()
@@ -163,7 +175,7 @@ try:
                 
                 user_input = ""
                 continue
-            
+        
         key = screen.getch()
         if len(user_input) == 0:
             start_time = datetime.datetime.now()
@@ -172,6 +184,8 @@ try:
             user_input += ""
         else:
             user_input += chr(key)
+        if key == 27:
+            break
 
 except KeyboardInterrupt:
     curses.endwin()

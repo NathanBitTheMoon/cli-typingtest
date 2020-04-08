@@ -1,7 +1,7 @@
 # cli-typingtest
 A command line typing test written using curses in Python 3
 
-Works best on Linux, works on Windows but you must install windows-curses
+Works best on Linux, works on Windows but you must install "windows-curses" and at this time, the delete key code must be changed but this will be fixed in the future.
 
 ### Command line arguments
 * **-rs --range-start** The start of the range where words will be chosen. Default is 0

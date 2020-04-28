@@ -53,6 +53,21 @@ def welcome_message(args):
 
     screen.getch()
 
+def display_results(start_time, end_time, result):
+    screen.clear()
+
+    # Calculate score
+    diff = (end_time - start_time)
+    cpm = result["char"] / diff.total_seconds()
+    wpm = result["words"] / diff.total_seconds()
+    filename = command_line_arguments["text_file"].split('.')
+    filename = '.'.join(filename[::-1][1:][::-1])
+    screen.addstr(1, centre_pos_x("Results"), "Results", curses.color_pair(4))
+    screen.addstr(2, 1, f"Text: {filename}")
+    screen.addstr(3, 1, f"Time: {str((diff.seconds//60)%60).zfill(2)}:{str(diff.seconds).zfill(2)}.{str(round(diff.microseconds, 2)).zfill(2)}, CPM: {str(round(cpm*60, 1))}, WPM: {str(round(wpm*60, 1))}\n Words: {len(words)}\n\n [E]xit [R]estart")
+
+    screen.refresh()
+
 def draw_words(words_list, user_input, std, start_time, args):
     std.clear()
     cursor_pos = len(user_input)
@@ -152,19 +167,9 @@ try:
         else:
             result = draw_words(words, user_input, screen, start_time, command_line_arguments)
             end_time = datetime.datetime.now()
-            screen.clear()
 
-            # Calculate score
-            diff = (end_time - start_time)
-            cpm = result["char"] / diff.total_seconds()
-            wpm = result["words"] / diff.total_seconds()
-            filename = command_line_arguments["text_file"].split('.')
-            filename = '.'.join(filename[::-1][1:][::-1])
-            screen.addstr(1, centre_pos_x("Results"), "Results", curses.color_pair(4))
-            screen.addstr(2, 1, f"Text: {filename}")
-            screen.addstr(3, 1, f"Time: {str((diff.seconds//60)%60).zfill(2)}:{str(diff.seconds).zfill(2)}.{str(round(diff.microseconds, 2)).zfill(2)}, CPM: {str(round(cpm*60, 1))}, WPM: {str(round(wpm*60, 1))}\n Words: {len(words)}\n\n [E]xit [R]estart")
-
-            screen.refresh()
+            display_results(start_time, end_time, result)
+            
             key = screen.getch()
             
             if key == ord('e') or key == ord('E'):
